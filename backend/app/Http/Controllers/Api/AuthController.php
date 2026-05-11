@@ -39,7 +39,15 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = Auth::guard('api')->login($user);
+        try {
+            $token = Auth::guard('api')->login($user);
+        } catch (JWTException $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'No se pudo generar el token de sesión. Revisá JWT_SECRET en `.env` y ejecutá `php artisan config:clear` (y `jwt:secret` si hace falta).',
+            ], 500);
+        }
 
         return $this->respondWithToken($token);
     }
@@ -56,7 +64,15 @@ class AuthController extends Controller
         $matches = User::query()
             ->whereNotNull('pin')
             ->get()
-            ->filter(fn (User $u) => Hash::check($data['pin'], $u->pin));
+            ->filter(function (User $u) use ($data) {
+                $stored = $u->getRawOriginal('pin');
+
+                if ($stored === null || $stored === '') {
+                    return false;
+                }
+
+                return Hash::check($data['pin'], (string) $stored);
+            });
 
         if ($matches->isEmpty()) {
             throw ValidationException::withMessages([
@@ -78,7 +94,15 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = Auth::guard('api')->login($user);
+        try {
+            $token = Auth::guard('api')->login($user);
+        } catch (JWTException $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'No se pudo generar el token de sesión. Revisá JWT_SECRET en `.env` y ejecutá `php artisan config:clear` (y `jwt:secret` si hace falta).',
+            ], 500);
+        }
 
         return $this->respondWithToken($token);
     }

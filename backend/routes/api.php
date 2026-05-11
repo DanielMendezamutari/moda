@@ -1,14 +1,15 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\CashMovementController;
 use App\Http\Controllers\Api\CashRegisterController;
 use App\Http\Controllers\Api\CashRegisterSessionController;
 use App\Http\Controllers\Api\CashReportController;
-use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ConversionController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\InventoryKardexController;
 use App\Http\Controllers\Api\MetaController;
 use App\Http\Controllers\Api\PermissionController;
@@ -43,6 +44,7 @@ Route::middleware('auth:api')->group(function (): void {
     Route::get('meta/unit-dimensions', [MetaController::class, 'unitDimensions']);
 
     Route::get('reports', [ReportController::class, 'index']);
+    Route::get('dashboard/analytics', [DashboardController::class, 'analytics']);
 
     Route::get('permissions', [PermissionController::class, 'index']);
     Route::get('roles', [RoleController::class, 'index']);
