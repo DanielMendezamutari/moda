@@ -1,11 +1,12 @@
-# Generado en build:hosting (SPA en Apache).
+# Asegurar que Apache abra el SPA (cPanel a veces prioriza solo index.php).
 DirectoryIndex index.php index.html
 
+# Vue Router (history): rutas internas → index.html
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteBase /moda/backend/public/panel/
+  RewriteBase /
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule . index.html [L]
+  RewriteRule . /index.html [L]
 </IfModule>

@@ -18,6 +18,10 @@
     RewriteCond %{REQUEST_URI} (.+)/$
     RewriteRule ^ %1 [L,R=301]
 
+    # Panel Vue (public/panel/): rutas del SPA → index.html (no tocar archivos reales como /panel/assets/…)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^panel(?:/.*)?$ panel/index.html [L]
+
     # Send Requests To Front Controller...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f

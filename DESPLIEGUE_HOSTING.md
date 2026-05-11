@@ -9,6 +9,18 @@ Este proyecto tiene **dos partes**:
 
 En **producción** el frontend se compila a archivos estáticos (`dist/`). El navegador llama al backend por HTTPS usando la URL configurada en `VITE_API_BASE_URL`.
 
+### Forma más simple (recomendada en cPanel): un solo `public` de Laravel
+
+No hace falta que el dominio apunte a una carpeta aparte solo para Vue.
+
+1. **Document root del dominio** = carpeta **`backend/public`** de Laravel (donde está el `index.php` de Laravel).
+2. En tu PC, en `frontend/`: ajustá **`frontend/.env.hosting`** (`VITE_APP_BASE` y `VITE_API_BASE_URL` deben coincidir con las URLs reales que ves en el navegador, incluido `/panel/` y `/api`).
+3. Compilá: `npm run build:hosting` (o `pnpm run build:hosting`).
+4. Publicá el panel dentro de Laravel: desde `backend/`, `php artisan panel:publish` (copia el build a `public/panel/`).
+5. En el navegador: **`/`** redirige a **`/panel/`** (o la ruta completa si Laravel está bajo subcarpetas, p. ej. `…/moda/backend/public/panel/`).
+
+El API sigue en **`…/api`**. No subas `.git` ni el código fuente del frontend a la raíz pública del dominio; solo el proyecto Laravel con `public/panel/` generado por el comando.
+
 ---
 
 ## 1. Requisitos del hosting
