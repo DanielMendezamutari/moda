@@ -48,7 +48,8 @@ return new class extends Migration
             $table->string('method_payment', 64)->nullable();
             $table->text('description')->nullable();
             $table->timestamp('occurred_at');
-            $table->foreignId('sale_payment_id')->nullable()->unique()->constrained('sale_payments')->nullOnDelete();
+            // FK added in 2026_05_18_120000_expand_sales_module (sale_payments is created later).
+            $table->unsignedBigInteger('sale_payment_id')->nullable()->unique();
             $table->timestamps();
 
             $table->index(['cash_register_session_id', 'occurred_at']);

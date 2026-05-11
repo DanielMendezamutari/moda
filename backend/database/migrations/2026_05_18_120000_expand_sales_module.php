@@ -41,10 +41,21 @@ return new class extends Migration
 
             $table->index(['sale_id', 'created_at']);
         });
+
+        Schema::table('cash_movements', function (Blueprint $table) {
+            $table->foreign('sale_payment_id')
+                ->references('id')
+                ->on('sale_payments')
+                ->nullOnDelete();
+        });
     }
 
     public function down(): void
     {
+        Schema::table('cash_movements', function (Blueprint $table) {
+            $table->dropForeign(['sale_payment_id']);
+        });
+
         Schema::dropIfExists('sale_payments');
 
         Schema::table('sale_items', function (Blueprint $table) {
