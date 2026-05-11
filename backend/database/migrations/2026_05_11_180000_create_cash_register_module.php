@@ -63,10 +63,12 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('sales', function (Blueprint $table) {
-            $table->dropForeign(['cash_register_session_id']);
-            $table->dropColumn('cash_register_session_id');
-        });
+        if (Schema::hasTable('sales') && Schema::hasColumn('sales', 'cash_register_session_id')) {
+            Schema::table('sales', function (Blueprint $table) {
+                $table->dropForeign(['cash_register_session_id']);
+                $table->dropColumn('cash_register_session_id');
+            });
+        }
 
         Schema::dropIfExists('cash_movements');
         Schema::dropIfExists('cash_register_sessions');

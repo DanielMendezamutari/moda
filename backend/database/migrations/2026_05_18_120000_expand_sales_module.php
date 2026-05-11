@@ -6,6 +6,22 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Tabla de líneas de venta: en el orden por defecto sigue siendo `sale_items` hasta el rename;
+     * si solo existe `sale_details` (orden de migraciones alterado), se usa esa.
+     */
+    private function saleLinesTable(): ?string
+    {
+        if (Schema::hasTable('sale_items')) {
+            return 'sale_items';
+        }
+        if (Schema::hasTable('sale_details')) {
+            return 'sale_details';
+        }
+
+        return null;
+    }
+
     public function up(): void
     {
         Schema::table('sales', function (Blueprint $table) {
@@ -22,7 +38,14 @@ return new class extends Migration
             $table->text('description')->nullable()->after('date_pay_complete');
         });
 
-        Schema::table('sale_items', function (Blueprint $table) {
+        $lines = $this->saleLinesTable();
+        if ($lines === null) {
+            throw new \RuntimeException(
+                'No existe sale_items ni sale_details. Debe ejecutarse antes 2026_05_16_100000_create_sale_purchase_transport_item_tables.'
+            );
+        }
+
+        Schema::table($lines, function (Blueprint $table) {
             $table->foreignId('unit_id')->nullable()->after('product_id')->constrained()->nullOnDelete();
             $table->foreignId('warehouse_id')->nullable()->after('unit_id')->constrained()->restrictOnDelete();
             $table->foreignId('category_id')->nullable()->after('warehouse_id')->constrained('categories')->nullOnDelete();
@@ -42,28 +65,35 @@ return new class extends Migration
             $table->index(['sale_id', 'created_at']);
         });
 
-        Schema::table('cash_movements', function (Blueprint $table) {
-            $table->foreign('sale_payment_id')
-                ->references('id')
-                ->on('sale_payments')
-                ->nullOnDelete();
-        });
+        if (Schema::hasTable('cash_movements')) {
+            Schema::table('cash_movements', function (Blueprint $table) {
+                $table->foreign('sale_payment_id')
+                    ->references('id')
+                    ->on('sale_payments')
+                    ->nullOnDelete();
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('cash_movements', function (Blueprint $table) {
-            $table->dropForeign(['sale_payment_id']);
-        });
+        if (Schema::hasTable('cash_movements')) {
+            Schema::table('cash_movements', function (Blueprint $table) {
+                $table->dropForeign(['sale_payment_id']);
+            });
+        }
 
         Schema::dropIfExists('sale_payments');
 
-        Schema::table('sale_items', function (Blueprint $table) {
-            $table->dropForeign(['unit_id']);
-            $table->dropForeign(['warehouse_id']);
-            $table->dropForeign(['category_id']);
-            $table->dropColumn(['unit_id', 'warehouse_id', 'category_id', 'discount', 'line_subtotal', 'line_total']);
-        });
+        $lines = $this->saleLinesTable();
+        if ($lines !== null) {
+            Schema::table($lines, function (Blueprint $table) {
+                $table->dropForeign(['unit_id']);
+                $table->dropForeign(['warehouse_id']);
+                $table->dropForeign(['category_id']);
+                $table->dropColumn(['unit_id', 'warehouse_id', 'category_id', 'discount', 'line_subtotal', 'line_total']);
+            });
+        }
 
         Schema::table('sales', function (Blueprint $table) {
             $table->dropForeign(['client_id']);
