@@ -1,0 +1,7 @@
+// Write your overrides
+
+// Footer: el tema fija ~56px; permitir altura natural (pie minimalista).
+.layout-footer .footer-content-container {
+  block-size: auto;
+  min-block-size: 2.25rem;
+}
