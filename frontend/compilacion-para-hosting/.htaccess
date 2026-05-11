@@ -1,0 +1,10 @@
+# Vue Router (history): sirve index.html para rutas que no son archivos reales.
+# Copiado a la raíz del build (dist/ o compilacion-para-hosting/) por Vite.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>

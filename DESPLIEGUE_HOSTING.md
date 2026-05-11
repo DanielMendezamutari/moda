@@ -179,9 +179,45 @@ npm run build
 
 El resultado queda en `frontend/dist/`. Esa carpeta es la que servís como sitio estático.
 
+#### Build en tu PC solo para el hosting (carpeta aparte)
+
+Si preferís compilar en tu máquina y subir estáticos sin tocar `dist/` ni tu `.env` de desarrollo:
+
+```bash
+cd frontend
+pnpm run build:hosting
+# o: npm run build:hosting
+```
+
+- Lee `frontend/.env.hosting` (URL del API de producción).
+- Genera `frontend/compilacion-para-hosting/` (subí **ese** contenido al hosting por FTP/SFTP). Esa carpeta también puede estar versionada en Git para desplegar sin compilar en el servidor.
+
+Para otra URL de API, editá `frontend/.env.hosting` antes del comando y volvé a ejecutar `build:hosting` antes de subir o de hacer commit.
+
 ### 4.3 Despliegue en subcarpeta (`https://dominio.com/moda/`)
 
 Si el SPA no está en la raíz del dominio, en `vite.config.js` hay que definir `base: '/moda/'` (u otra ruta), volver a compilar, y configurar el servidor para que todas las rutas del SPA redirijan a `index.html` (fallback SPA).
+
+### 4.4 Ejemplo: `https://moda.ribersoft.com/` = panel (SPA en la raíz del dominio)
+
+1. **DNS**  
+   El registro **A** (o **CNAME**) de `moda.ribersoft.com` debe apuntar al servidor del hosting (si ya abrís el API en ese dominio, esto ya está bien).
+
+2. **Build en tu PC** (API en `/moda/backend/public/api`, ver `frontend/.env.hosting`):
+
+   ```bash
+   cd frontend
+   pnpm run build:hosting
+   ```
+
+3. **Subir archivos**  
+   Subí **todo el contenido** de `frontend/compilacion-para-hosting/` (incluido `.htaccess`) a la carpeta que Apache use como **raíz del sitio** para `moda.ribersoft.com`. En cPanel con dominio principal suele ser `public_html/`; si usás un subdominio o “carpeta de inicio” distinta, usá esa ruta.
+
+4. **Apache**  
+   El build incluye `public/.htaccess` (reglas `mod_rewrite`) para que rutas como `/login` o `/ventas` carguen `index.html`. En cPanel debe estar activo **AllowOverride** para esa carpeta (muchas cuentas ya lo traen por defecto).
+
+5. **Convivencia con el backend**  
+   Si el API sigue en `https://moda.ribersoft.com/moda/backend/public/api`, no hace falta mezclar PHP del Laravel en la misma carpeta que el SPA: el panel en la raíz solo sirve HTML/JS/CSS; las peticiones van por HTTPS a la URL del `.env.hosting`.
 
 ---
 
