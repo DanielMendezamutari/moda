@@ -47,7 +47,7 @@ final class ProductReturnInventoryService
 
         $qtyInt = $this->integerQuantity($return);
 
-        DB::transaction(function () use ($return, $qtyInt): void {
+        DB::transaction(function () use ($return): void {
             $pivot = DB::table('product_warehouses')
                 ->where('product_id', (int) $return->product_id)
                 ->where('warehouse_id', (int) $return->warehouse_id)

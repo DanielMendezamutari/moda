@@ -11,6 +11,7 @@ use App\Services\PurchaseService;
 use App\Support\TabularExport;
 use Dompdf\Dompdf;
 use Dompdf\Options;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -259,7 +260,7 @@ class PurchaseController extends Controller
         return response()->json(['data' => $this->serializeDetail($purchase)]);
     }
 
-    private function baseQuery(Request $request): \Illuminate\Database\Eloquent\Builder
+    private function baseQuery(Request $request): Builder
     {
         $q = Purchase::query();
 
@@ -519,9 +520,9 @@ class PurchaseController extends Controller
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Builder<Purchase>
+     * @return Builder<Purchase>
      */
-    private function purchaseListForExport(Request $request): \Illuminate\Database\Eloquent\Builder
+    private function purchaseListForExport(Request $request): Builder
     {
         return $this->baseQuery($request)
             ->with([

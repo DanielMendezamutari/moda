@@ -15,10 +15,13 @@ use App\Http\Controllers\Api\MetaController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProductReturnController;
+use App\Http\Controllers\Api\PublicCatalogController;
 use App\Http\Controllers\Api\PurchaseController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\SaleController;
+use App\Http\Controllers\Api\StoreAuthController;
+use App\Http\Controllers\Api\StoreCartController;
 use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\TransportController;
 use App\Http\Controllers\Api\UnitController;
@@ -39,9 +42,20 @@ Route::prefix('auth')->group(function (): void {
     Route::post('/refresh', [AuthController::class, 'refresh']);
 });
 
+Route::get('public/catalog/categories', [PublicCatalogController::class, 'categories']);
+Route::get('public/catalog/products', [PublicCatalogController::class, 'products']);
+Route::post('store/register', [StoreAuthController::class, 'register']);
+Route::post('store/login', [StoreAuthController::class, 'login']);
+
 Route::middleware('auth:api')->group(function (): void {
     Route::get('meta/bolivia-departments', [MetaController::class, 'boliviaDepartments']);
     Route::get('meta/unit-dimensions', [MetaController::class, 'unitDimensions']);
+
+    Route::post('store/cart/merge', [StoreCartController::class, 'merge']);
+    Route::get('store/cart', [StoreCartController::class, 'index']);
+    Route::post('store/cart/items', [StoreCartController::class, 'store']);
+    Route::patch('store/cart/items/{product}', [StoreCartController::class, 'update']);
+    Route::delete('store/cart/items/{product}', [StoreCartController::class, 'destroy']);
 
     Route::get('reports', [ReportController::class, 'index']);
     Route::get('dashboard/analytics', [DashboardController::class, 'analytics']);
@@ -129,6 +143,7 @@ Route::middleware('auth:api')->group(function (): void {
     Route::apiResource('conversions', ConversionController::class)->only(['index', 'store', 'show']);
 
     Route::get('inventory/kardex', [InventoryKardexController::class, 'index']);
+    Route::get('inventory/kardex/product-ledger', [InventoryKardexController::class, 'productLedger']);
     Route::get('sales/{sale}/ticket', [SaleController::class, 'ticket']);
     Route::post('sales/{sale}/payments', [SaleController::class, 'storePayment']);
     Route::apiResource('sales', SaleController::class);

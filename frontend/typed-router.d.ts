@@ -40,6 +40,7 @@ declare module 'vue-router/auto-routes' {
     'roles-permisos': RouteRecordInfo<'roles-permisos', '/roles-permisos', Record<never, never>, Record<never, never>>,
     'second-page': RouteRecordInfo<'second-page', '/second-page', Record<never, never>, Record<never, never>>,
     'sucursales': RouteRecordInfo<'sucursales', '/sucursales', Record<never, never>, Record<never, never>>,
+    'tienda': RouteRecordInfo<'tienda', '/tienda', Record<never, never>, Record<never, never>>,
     'transportes': RouteRecordInfo<'transportes', '/transportes', Record<never, never>, Record<never, never>>,
     'transportes-registrar': RouteRecordInfo<'transportes-registrar', '/transportes/registrar', Record<never, never>, Record<never, never>>,
     'unidades': RouteRecordInfo<'unidades', '/unidades', Record<never, never>, Record<never, never>>,

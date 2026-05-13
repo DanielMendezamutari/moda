@@ -111,8 +111,7 @@ class RoleController extends Controller
 
         if ($system) {
             $rules['name'] = ['prohibited'];
-        }
-        else {
+        } else {
             $rules['name'] = [
                 'sometimes',
                 'required',

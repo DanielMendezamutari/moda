@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\CashMovement;
 use App\Models\CashRegisterSession;
+use App\Policies\CashRegisterPolicy;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Http\JsonResponse;
@@ -70,7 +71,7 @@ class CashMovementController extends Controller
             ]);
         }
 
-        $policy = new \App\Policies\CashRegisterPolicy;
+        $policy = new CashRegisterPolicy;
         if (! $policy->canAccessBranch($request->user(), (int) $session->cashRegister->branch_id)) {
             abort(403, 'No autorizado.');
         }

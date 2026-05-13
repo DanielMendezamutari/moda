@@ -114,6 +114,7 @@ class AuthController extends Controller
 
         $isAdmin = $user->hasRole('admin');
         $isCashier = $user->hasRole('cashier');
+        $isStoreCustomer = $user->hasRole('store_customer');
 
         return response()->json([
             'id' => $user->id,
@@ -125,6 +126,7 @@ class AuthController extends Controller
             /** Flags explícitos: el SPA usa esto para POS aunque el nombre del rol no sea exactamente `admin`. */
             'is_admin' => $isAdmin,
             'is_cashier' => $isCashier,
+            'is_store_customer' => $isStoreCustomer,
             /**
              * Mismo criterio que `SalePolicy`: permiso explícito o rol base POS.
              * Evita 403 en POS cuando el rol `admin` existe pero la tabla de permisos quedó desincronizada.

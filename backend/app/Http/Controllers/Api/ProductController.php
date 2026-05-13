@@ -12,8 +12,6 @@ use App\Support\ProductDeletionGuard;
 use App\Support\SkuGenerator;
 use App\Support\TabularExport;
 use Dompdf\Dompdf;
-use Picqer\Barcode\BarcodeGeneratorHTML;
-use Picqer\Barcode\BarcodeGeneratorPNG;
 use Dompdf\Options;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -24,6 +22,9 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Picqer\Barcode\BarcodeGeneratorHTML;
+use Picqer\Barcode\BarcodeGeneratorPNG;
+use Picqer\Barcode\BarcodeGeneratorSVG;
 use Shuchkin\SimpleXLSXGen;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -205,8 +206,10 @@ class ProductController extends Controller
 
         $options = new Options;
         $options->set('defaultFont', 'DejaVu Sans');
-        $options->set('isRemoteEnabled', false);
+        // data:image y recursos embebidos: en Dompdf 3.x conviene tener remoto habilitado para evitar PDF sin gráficos.
+        $options->set('isRemoteEnabled', true);
         $options->set('isHtml5ParserEnabled', true);
+        $options->set('dpi', 120);
 
         $dompdf = new Dompdf($options);
         $dompdf->loadHtml($html, 'UTF-8');
@@ -256,13 +259,15 @@ class ProductController extends Controller
         ]);
 
         $barcode = $this->normalizeBarcode($validated['barcode'] ?? null);
-        if ($barcode === null && ($validated['generate_barcode'] ?? false)) {
+        // Misma semántica que en update(): leer del request asegura multipart/FormData ("1"/"0").
+        if ($barcode === null && $request->boolean('generate_barcode')) {
             $barcode = BarcodeGenerator::randomUniqueEan13();
         }
 
         $path = null;
-        if ($request->hasFile('image'))
+        if ($request->hasFile('image')) {
             $path = $request->file('image')->store('products', 'public');
+        }
 
         $lines = $this->resolveWarehouseLinesForPersist($request, $validated);
         $this->assertDistinctWarehouseIds($lines);
@@ -347,38 +352,49 @@ class ProductController extends Controller
             'remove_image' => ['sometimes', 'boolean'],
         ]));
 
-        if (array_key_exists('sku', $validated))
+        if (array_key_exists('sku', $validated)) {
             $product->sku = $validated['sku'];
+        }
 
-        if (array_key_exists('name', $validated))
+        if (array_key_exists('name', $validated)) {
             $product->name = $validated['name'];
+        }
 
-        if (array_key_exists('description', $validated))
+        if (array_key_exists('description', $validated)) {
             $product->description = $validated['description'];
+        }
 
-        if (array_key_exists('price', $validated))
+        if (array_key_exists('price', $validated)) {
             $product->price = $validated['price'];
+        }
 
-        if (array_key_exists('wholesale_price', $validated))
+        if (array_key_exists('wholesale_price', $validated)) {
             $product->wholesale_price = $validated['wholesale_price'];
+        }
 
-        if (array_key_exists('cost_price', $validated))
+        if (array_key_exists('cost_price', $validated)) {
             $product->cost_price = $validated['cost_price'];
+        }
 
-        if (array_key_exists('discount_percent', $validated))
+        if (array_key_exists('discount_percent', $validated)) {
             $product->discount_percent = $validated['discount_percent'];
+        }
 
-        if (array_key_exists('warranty_days', $validated))
+        if (array_key_exists('warranty_days', $validated)) {
             $product->warranty_days = $validated['warranty_days'];
+        }
 
-        if (array_key_exists('is_active', $validated))
+        if (array_key_exists('is_active', $validated)) {
             $product->is_active = $validated['is_active'];
+        }
 
-        if (array_key_exists('is_gift_card', $validated))
+        if (array_key_exists('is_gift_card', $validated)) {
             $product->is_gift_card = $validated['is_gift_card'];
+        }
 
-        if (array_key_exists('category_id', $validated))
+        if (array_key_exists('category_id', $validated)) {
             $product->category_id = $validated['category_id'];
+        }
 
         if ($request->boolean('generate_barcode')) {
             $product->barcode = BarcodeGenerator::randomUniqueEan13();
@@ -476,8 +492,9 @@ class ProductController extends Controller
 
     private function normalizeBarcode(?string $barcode): ?string
     {
-        if ($barcode === null)
+        if ($barcode === null) {
             return null;
+        }
 
         $barcode = trim($barcode);
 
@@ -497,8 +514,9 @@ class ProductController extends Controller
 
     private function deleteStoredImage(Product $product): void
     {
-        if ($product->image_path && Storage::disk('public')->exists($product->image_path))
+        if ($product->image_path && Storage::disk('public')->exists($product->image_path)) {
             Storage::disk('public')->delete($product->image_path);
+        }
     }
 
     private function buildProductListQuery(Request $request): Builder
@@ -671,8 +689,8 @@ class ProductController extends Controller
     }
 
     /**
-     * Barras escaneables en PDF: PNG en base64 (Dompdf no dibuja bien SVG).
-     * Sin GD/Imagick, recurre a HTML con barras en bloques.
+     * Barras escaneables en PDF: preferir PNG (GD/Imagick) en base64; si falla o no hay raster,
+     * SVG incrustado (Dompdf dibuja mal los HTML con position:absolute de Picqer).
      */
     private function barcodeBarsHtmlForPdf(string $barcode): string
     {
@@ -683,13 +701,25 @@ class ProductController extends Controller
         if (extension_loaded('gd') || extension_loaded('imagick')) {
             try {
                 $gen = new BarcodeGeneratorPNG;
-                $pngBinary = $gen->getBarcode($barcode, $type, 3, 80, [17, 24, 39]);
+                // Barras más altas y gruesas para que se vean y escaneen bien al imprimir el PDF.
+                $pngBinary = $gen->getBarcode($barcode, $type, 4, 100, [0, 0, 0]);
                 $b64 = base64_encode($pngBinary);
 
                 return '<img src="data:image/png;base64,'.$b64.'" alt="" class="barcode-img" />';
             } catch (\Throwable) {
-                /* intentar HTML */
+                /* intentar SVG / HTML */
             }
+        }
+
+        try {
+            $gen = new BarcodeGeneratorSVG;
+            $svg = $gen->getBarcode($barcode, $type, 3, 72, '#000000');
+            $svg = preg_replace('/^<\?xml[^>]*>\s*/', '', $svg) ?? $svg;
+            $svg = preg_replace('/^<!DOCTYPE[^>]*>\s*/', '', $svg) ?? $svg;
+
+            return '<div class="barcode-wrap barcode-svg-embed">'.$svg.'</div>';
+        } catch (\Throwable) {
+            /* último recurso */
         }
 
         try {
@@ -713,8 +743,9 @@ class ProductController extends Controller
         ]);
 
         $imageUrl = null;
-        if ($product->image_path)
+        if ($product->image_path) {
             $imageUrl = asset('storage/'.$product->image_path);
+        }
 
         $c = $product->category;
         $w = $product->warehouses->first();
@@ -879,10 +910,12 @@ class ProductController extends Controller
 
     private function nullableDecimal(mixed $value): ?string
     {
-        if ($value === null || $value === '')
+        if ($value === null || $value === '') {
             return null;
-        if (is_numeric($value))
+        }
+        if (is_numeric($value)) {
             return (string) $value;
+        }
 
         return null;
     }

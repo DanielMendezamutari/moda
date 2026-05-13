@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CashMovement;
 use App\Models\CashRegisterSession;
 use App\Models\Sale;
+use App\Models\SalePayment;
 
 class CashMovementRecorder
 {
@@ -28,7 +29,7 @@ class CashMovementRecorder
         }
     }
 
-    public function recordPaymentLine(Sale $sale, \App\Models\SalePayment $payment, CashRegisterSession $session): void
+    public function recordPaymentLine(Sale $sale, SalePayment $payment, CashRegisterSession $session): void
     {
         CashMovement::query()->firstOrCreate(
             ['sale_payment_id' => $payment->id],

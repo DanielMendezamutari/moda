@@ -17,6 +17,7 @@ const canView = computed(() => authStore.canInventoryKardexView)
 const loadingProducts = ref(false)
 const loadingWarehouses = ref(false)
 const loadingKardex = ref(false)
+const loadingProductLedger = ref(false)
 const errorMsg = ref('')
 
 const products = ref([])
@@ -29,6 +30,12 @@ const dateTo = ref('')
 
 const payload = ref(null)
 
+/** Kardex multi-almacén (código de barras / producto). */
+const productLedger = ref(null)
+const lastLedgerParams = ref(null)
+const ledgerViewTab = ref('valorizado')
+const barcodeInput = ref('')
+
 const snackbar = reactive({
   show: false,
   text: '',
@@ -36,7 +43,7 @@ const snackbar = reactive({
 
 const productItems = computed(() =>
   (products.value ?? []).map(p => ({
-    title: p.sku ? `${p.name} (${p.sku})` : p.name,
+    title: [p.name, p.sku ? `(${p.sku})` : '', p.barcode ? `· ${p.barcode}` : ''].filter(Boolean).join(' '),
     value: p.id,
   })),
 )
@@ -81,10 +88,73 @@ function formatDateShort(iso) {
   }
 }
 
+function rowMatchesLedgerView(row, viewId) {
+  if (!viewId || viewId === 'valorizado')
+    return true
+  const t = row.movement_type
+  if (viewId === 'ventas')
+    return t === 'sale_out'
+  if (viewId === 'compras')
+    return t === 'purchase_in' || t === 'purchase_revert'
+  if (viewId === 'logistica') {
+    return t === 'initial'
+      || t === 'return_in' || t === 'return_revert'
+      || t === 'transport_out' || t === 'transport_in'
+      || t === 'transport_out_revert' || t === 'transport_in_revert'
+      || t === 'conversion'
+  }
+
+  return true
+}
+
+const displayLedgerWarehouses = computed(() => {
+  const list = productLedger.value?.warehouses ?? []
+  const tab = ledgerViewTab.value || 'valorizado'
+
+  return list.map(wh => ({
+    ...wh,
+    sections: (wh.sections ?? []).map(sec => ({
+      ...sec,
+      rows: (sec.rows ?? []).filter(r => rowMatchesLedgerView(r, tab)),
+    })),
+  }))
+})
+
+const currentLedgerViewDescription = computed(() => {
+  const types = productLedger.value?.view_types ?? []
+  const hit = types.find(v => v.id === ledgerViewTab.value)
+
+  return hit?.description ?? ''
+})
+
+function buildLedgerQueryParams(params) {
+  const q = new URLSearchParams()
+  if (params.barcode)
+    q.set('barcode', params.barcode)
+  if (params.product_id != null)
+    q.set('product_id', String(params.product_id))
+  if (dateFrom.value)
+    q.set('from', dateFrom.value)
+  if (dateTo.value)
+    q.set('to', dateTo.value)
+
+  return q
+}
+
+function ledgerParamsFromForm() {
+  const bc = barcodeInput.value.trim()
+  if (bc)
+    return { barcode: bc }
+  if (productId.value)
+    return { product_id: productId.value }
+
+  return null
+}
+
 async function fetchProducts() {
   loadingProducts.value = true
   try {
-    const res = await $api('/products', { query: { per_page: 150 } })
+    const res = await $api('/products', { query: { per_page: 300 } })
     products.value = Array.isArray(res?.data) ? res.data : []
   }
   catch (e) {
@@ -111,6 +181,61 @@ async function fetchWarehouses() {
 }
 
 let kardexTimer = null
+let ledgerTimer = null
+
+async function fetchProductLedger(params, { preserveTab = false } = {}) {
+  errorMsg.value = ''
+  loadingProductLedger.value = true
+  try {
+    const q = buildLedgerQueryParams(params)
+    const res = await $api(`/inventory/kardex/product-ledger?${q.toString()}`)
+    const data = res?.data ?? res
+    productLedger.value = data
+    lastLedgerParams.value = { ...params }
+    if (!preserveTab)
+      ledgerViewTab.value = 'valorizado'
+    const pid = data?.product?.id
+    if (pid && productId.value !== pid)
+      productId.value = pid
+  }
+  catch (e) {
+    productLedger.value = null
+    lastLedgerParams.value = null
+    errorMsg.value = messageFromApiError(e, 'No se pudo cargar el kardex del producto.')
+    snackbar.text = errorMsg.value
+    snackbar.show = true
+  }
+  finally {
+    loadingProductLedger.value = false
+  }
+}
+
+async function searchProductLedgerFromForm() {
+  const p = ledgerParamsFromForm()
+  if (!p) {
+    snackbar.text = 'Ingresá un código de barras, SKU o elegí un producto y tocá «Buscar».'
+    snackbar.show = true
+
+    return
+  }
+  await fetchProductLedger(p)
+}
+
+function clearProductLedger() {
+  productLedger.value = null
+  lastLedgerParams.value = null
+}
+
+function scheduleLedgerRefetch() {
+  if (!lastLedgerParams.value)
+    return
+  if (ledgerTimer)
+    clearTimeout(ledgerTimer)
+  ledgerTimer = setTimeout(() => {
+    ledgerTimer = null
+    fetchProductLedger(lastLedgerParams.value, { preserveTab: true })
+  }, 300)
+}
 
 async function fetchKardex() {
   if (!productId.value || !warehouseId.value) {
@@ -153,8 +278,16 @@ function scheduleKardex() {
   }, 300)
 }
 
-watch([productId, warehouseId], () => scheduleKardex())
-watch([dateFrom, dateTo], () => scheduleKardex())
+watch([productId, warehouseId], () => {
+  scheduleKardex()
+  if (productLedger.value && productId.value !== productLedger.value.product?.id)
+    clearProductLedger()
+})
+
+watch([dateFrom, dateTo], () => {
+  scheduleKardex()
+  scheduleLedgerRefetch()
+})
 
 onMounted(async () => {
   if (!canView.value)
@@ -173,6 +306,7 @@ onMounted(async () => {
         <p class="text-body-2 text-medium-emphasis mb-0">
           Libro por <strong>producto</strong> y <strong>almacén</strong>: compras entregadas, ventas, devoluciones, traslados y conversiones de unidad.
           Las <strong>existencias</strong> muestran cantidad y <strong>costo promedio ponderado</strong> (valor total del inventario).
+          Con el <strong>lector</strong> podés cargar el mismo libro en <strong>todos los almacenes</strong> y filtrar por tipo de movimiento.
         </p>
       </div>
     </div>
@@ -208,6 +342,262 @@ onMounted(async () => {
           (opcional: <code>--dry-run</code> para ver cuántas líneas faltan sin insertar).
         </div>
       </VAlert>
+
+      <VCard class="mb-6" elevation="1" border>
+        <VCardTitle class="text-subtitle-1 py-3">
+          Inventario con lector (todos los almacenes)
+        </VCardTitle>
+        <VCardText>
+          <p class="text-body-2 text-medium-emphasis mb-4">
+            Escaneá el código de barras o escribí el SKU, confirmá con <strong>Buscar</strong> y revisá el libro en cada sucursal/almacén.
+            Las pestañas filtran el mismo kardex: <em>valorizado</em> (completo), <em>ventas</em>, <em>compras</em> y <em>traslados, devoluciones y conversiones</em>.
+            Las columnas de existencias siguen siendo el valor registrado en cada movimiento (no se recalculan al filtrar filas).
+          </p>
+          <VRow dense>
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="barcodeInput"
+                label="Código de barras o SKU"
+                density="comfortable"
+                hide-details="auto"
+                autocomplete="off"
+                @keydown.enter.prevent="searchProductLedgerFromForm"
+              />
+            </VCol>
+            <VCol cols="12" md="6" class="d-flex flex-wrap align-center gap-2">
+              <VBtn
+                color="primary"
+                :loading="loadingProductLedger"
+                @click="searchProductLedgerFromForm"
+              >
+                Buscar kardex global
+              </VBtn>
+              <VBtn
+                v-if="productId"
+                variant="tonal"
+                :loading="loadingProductLedger"
+                @click="fetchProductLedger({ product_id: productId })"
+              >
+                Por producto elegido
+              </VBtn>
+              <VBtn
+                v-if="productLedger"
+                variant="text"
+                @click="clearProductLedger"
+              >
+                Cerrar vista
+              </VBtn>
+            </VCol>
+          </VRow>
+
+          <template v-if="productLedger">
+            <VTabs
+              v-model="ledgerViewTab"
+              class="mt-4"
+              density="comfortable"
+              color="primary"
+            >
+              <VTab
+                v-for="vt in (productLedger.view_types ?? [])"
+                :key="vt.id"
+                :value="vt.id"
+                class="text-none"
+              >
+                {{ vt.title }}
+              </VTab>
+            </VTabs>
+            <p
+              v-if="currentLedgerViewDescription"
+              class="text-caption text-medium-emphasis mt-2 mb-0"
+            >
+              {{ currentLedgerViewDescription }}
+            </p>
+
+            <VProgressLinear
+              v-if="loadingProductLedger"
+              indeterminate
+              color="primary"
+              class="mt-4 rounded"
+            />
+
+            <VAlert
+              v-if="!(displayLedgerWarehouses?.length)"
+              type="warning"
+              variant="tonal"
+              class="mt-4"
+              density="compact"
+            >
+              Este producto no figura en ningún almacén con stock o movimientos en el período.
+            </VAlert>
+
+            <template
+              v-for="wh in displayLedgerWarehouses"
+              :key="wh.warehouse_id"
+            >
+              <VCard
+                class="mt-4 kardex-sheet"
+                elevation="1"
+              >
+                <VCardTitle class="text-subtitle-2 py-2 bg-grey-lighten-4">
+                  {{ wh.warehouse?.name ?? 'Almacén' }}
+                  <span
+                    v-if="wh.warehouse?.branch?.name"
+                    class="text-body-2 text-medium-emphasis"
+                  >
+                    — {{ wh.warehouse.branch.name }}
+                  </span>
+                </VCardTitle>
+                <VCardText v-if="wh.summary" class="pb-0">
+                  <VRow dense>
+                    <VCol cols="12" sm="4">
+                      <div class="text-caption text-medium-emphasis">
+                        Stock actual
+                      </div>
+                      <div class="text-h6 font-weight-medium">
+                        {{ formatQty(wh.summary.stock_quantity) }}
+                      </div>
+                    </VCol>
+                    <VCol cols="12" sm="4">
+                      <div class="text-caption text-medium-emphasis">
+                        Costo prom. ponderado
+                      </div>
+                      <div class="text-h6 font-weight-medium">
+                        {{ formatMoney(wh.summary.weighted_avg_cost) }}
+                      </div>
+                    </VCol>
+                    <VCol cols="12" sm="4">
+                      <div class="text-caption text-medium-emphasis">
+                        Valor inventario
+                      </div>
+                      <div class="text-h6 font-weight-medium">
+                        {{ formatMoney(wh.summary.inventory_total_value) }}
+                      </div>
+                    </VCol>
+                  </VRow>
+                </VCardText>
+
+                <VCard
+                  v-for="(section, si) in (wh.sections ?? [])"
+                  :key="`${wh.warehouse_id}-${si}`"
+                  class="ma-4 mt-2"
+                  elevation="0"
+                  variant="outlined"
+                >
+                  <VCardTitle class="text-subtitle-2 py-2">
+                    {{ section.unit?.name ?? 'UNIDAD' }}
+                    <span
+                      v-if="productLedger?.product"
+                      class="text-body-2 text-medium-emphasis d-block mt-1"
+                    >
+                      {{ productLedger.product.name }}
+                      <template v-if="productLedger.product.sku"> · {{ productLedger.product.sku }}</template>
+                      <template v-if="productLedger.product.barcode"> · {{ productLedger.product.barcode }}</template>
+                    </span>
+                  </VCardTitle>
+
+                  <div class="kardex-table-wrap">
+                    <table class="kardex-table" cellspacing="0">
+                      <thead>
+                        <tr class="kardex-head-top">
+                          <th rowspan="2" class="k-fixed">
+                            Fecha
+                          </th>
+                          <th rowspan="2" class="k-fixed k-det">
+                            Detalle
+                          </th>
+                          <th colspan="3" class="k-in">
+                            Entrada
+                          </th>
+                          <th colspan="3" class="k-out">
+                            Salida
+                          </th>
+                          <th colspan="3" class="k-bal">
+                            Existencias
+                          </th>
+                        </tr>
+                        <tr class="kardex-head-sub">
+                          <th class="k-in">
+                            Cantidad
+                          </th>
+                          <th class="k-in">
+                            V/Unitario
+                          </th>
+                          <th class="k-in">
+                            V/Total
+                          </th>
+                          <th class="k-out">
+                            Cantidad
+                          </th>
+                          <th class="k-out">
+                            V/Unitario
+                          </th>
+                          <th class="k-out">
+                            V/Total
+                          </th>
+                          <th class="k-bal">
+                            Cantidad
+                          </th>
+                          <th class="k-bal" title="Costo unitario promedio ponderado">
+                            V/Unit. (prom.)
+                          </th>
+                          <th class="k-bal" title="Cantidad × costo promedio ponderado">
+                            V/Total
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          v-for="(row, ri) in (section.rows ?? [])"
+                          :key="row.id ?? `gl-${wh.warehouse_id}-${si}-${ri}`"
+                        >
+                          <td class="k-fixed">
+                            {{ formatDateShort(row.occurred_at) }}
+                          </td>
+                          <td class="k-fixed k-det">
+                            {{ row.detail_label ?? '—' }}
+                          </td>
+                          <td class="k-in num">
+                            {{ formatQty(row.in_qty) }}
+                          </td>
+                          <td class="k-in num">
+                            {{ formatMoney(row.in_unit_value) }}
+                          </td>
+                          <td class="k-in num">
+                            {{ formatMoney(row.in_total_value) }}
+                          </td>
+                          <td class="k-out num">
+                            {{ formatQty(row.out_qty) }}
+                          </td>
+                          <td class="k-out num">
+                            {{ formatMoney(row.out_unit_value) }}
+                          </td>
+                          <td class="k-out num">
+                            {{ formatMoney(row.out_total_value) }}
+                          </td>
+                          <td class="k-bal num">
+                            {{ formatQty(row.balance_quantity) }}
+                          </td>
+                          <td class="k-bal num">
+                            {{ formatMoney(row.balance_avg_cost) }}
+                          </td>
+                          <td class="k-bal num">
+                            {{ formatMoney(row.balance_total_value) }}
+                          </td>
+                        </tr>
+                        <tr v-if="!(section.rows ?? []).length">
+                          <td colspan="11" class="text-center text-medium-emphasis pa-6">
+                            Sin movimientos en esta vista.
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </VCard>
+              </VCard>
+            </template>
+          </template>
+        </VCardText>
+      </VCard>
 
       <VCard class="mb-6" elevation="1">
         <VCardText>

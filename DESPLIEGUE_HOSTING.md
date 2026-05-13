@@ -23,6 +23,86 @@ El API sigue en **`…/api`**. No subas `.git` ni el código fuente del frontend
 
 ---
 
+## cPanel: PHP 8.2 (ea-php82), Git, Artisan y panel:publish
+
+En **cPanel** el binario `php` del SSH a veces **no** es el mismo que usa el dominio (puede ser 7.x). Para Laravel 12 y Artisan usá explícitamente el PHP que elige **Select PHP Version** (ej. 8.2):
+
+```bash
+# Ajustá la ruta si en cPanel usás otra versión (ea-php83, ea-php81, etc.)
+export PHP_BIN=/opt/cpanel/ea-php82/root/usr/bin/php
+$PHP_BIN -v
+```
+
+Todos los `artisan` del servidor deberían ejecutarse así (desde la carpeta `backend/` del proyecto):
+
+```bash
+cd /home/TU_USUARIO/ruta/al/repo/backend
+$PHP_BIN artisan panel:publish
+$PHP_BIN artisan migrate --force
+$PHP_BIN artisan config:cache
+# etc.
+```
+
+Opcional: agregá a `~/.bashrc` la línea `export PHP_BIN=...` para no repetirla en cada sesión SSH.
+
+### Varios subdominios (misma app en varios sitios)
+
+Cada subdominio suele ser **una copia del proyecto** o **un document root distinto** con su propio `.env` en `backend/`:
+
+| Qué | Por subdominio |
+|-----|----------------|
+| `backend/.env` | `APP_URL`, `DB_*`, `JWT_SECRET` propios (o misma BD si comparten datos). |
+| Build del panel (`compilacion-para-hosting`) | Si la URL en el navegador **cambia** (ruta distinta a `/panel/`), cada build necesita su **`frontend/.env.hosting`** (`VITE_APP_BASE`, `VITE_API_BASE_URL`) y un **commit** de `compilacion-para-hosting` **para esa URL**, o compilás por entorno y desplegás solo el ZIP a ese servidor. |
+
+Si todos los subdominios sirven el **mismo** path público (mismo `VITE_APP_BASE` / misma API), un solo build alcanza para todos.
+
+### Cada vez que cambiás el panel Vue (dashboard, páginas, estilos)
+
+`public/panel/` **no** está en Git; lo que versionamos es **`frontend/compilacion-para-hosting/`**. Flujo recomendado:
+
+**En tu PC (donde compilás sin límites de tiempo del hosting)**
+
+1. Editá `frontend/.env.hosting` con la URL real de **ese** despliegue (`VITE_APP_BASE` y `VITE_API_BASE_URL`).
+2. Generá el build:
+   ```bash
+   cd frontend
+   pnpm install --frozen-lockfile   # o npm install
+   pnpm run build:hosting           # o npm run build:hosting
+   ```
+3. Commiteá y subí el resultado estático:
+   ```bash
+   cd ..
+   git add frontend/compilacion-para-hosting
+   git commit -m "build(frontend): panel para producción (subdominio X)"
+   git push origin main
+   ```
+
+**En el servidor (SSH), dentro del clon de ese subdominio**
+
+1. Actualizá el código:
+   ```bash
+   cd /home/TU_USUARIO/ruta/al/repo
+   git pull
+   ```
+2. Copiá el build versionado a `public/panel/`:
+   ```bash
+   export PHP_BIN=/opt/cpanel/ea-php82/root/usr/bin/php
+   cd backend
+   $PHP_BIN artisan panel:publish
+   ```
+3. Si hubo migraciones o cambios de `.env`:
+   ```bash
+   $PHP_BIN artisan migrate --force
+   $PHP_BIN artisan config:cache
+   $PHP_BIN artisan route:cache
+   $PHP_BIN artisan view:cache
+   ```
+4. En el navegador: **recarga forzada** (Ctrl+F5) para no ver JS viejo en caché.
+
+**Si solo cambió backend (PHP, rutas, migraciones)** y **no** tocaste Vue: alcanza con `git pull` + `composer install` si aplica + `migrate` / `config:cache` con el mismo `$PHP_BIN artisan ...` — **no** hace falta `panel:publish`.
+
+---
+
 ## 1. Requisitos del hosting
 
 ### 1.1 Recomendado: VPS o hosting con SSH
@@ -185,11 +265,14 @@ Con Node 18+ o 20 LTS:
 
 ```bash
 cd /var/www/moda/frontend
-npm ci
-npm run build
+# Este repo usa `pnpm-lock.yaml` (no `package-lock.json`). En el servidor:
+#   pnpm install --frozen-lockfile && pnpm run build:hosting
+# o con npm únicamente:
+npm install
+npm run build:hosting
 ```
 
-El resultado queda en `frontend/dist/`. Esa carpeta es la que servís como sitio estático.
+El resultado queda en `frontend/compilacion-para-hosting/`. Publicalo en Laravel con `cd ../backend && php artisan panel:publish` (copia a `public/panel/`).
 
 #### Build en tu PC solo para el hosting (carpeta aparte)
 
@@ -322,26 +405,33 @@ Si todo vive en el **mismo host y puerto** (misma origin), CORS suele ser mínim
 
 ## 9. Actualizar una versión nueva
 
-En el servidor:
+En el servidor (VPS: `export PHP_BIN=php`; **cPanel:** usá `$PHP_BIN` como en [cPanel: PHP 8.2 (ea-php82), Git, Artisan y panel:publish](#cpanel-php-82-ea-php82-git-artisan-y-panelpublish)):
+
+```bash
+cd /var/www/moda/backend   # o la ruta real del clon
+git pull                   # o subida de archivos
+composer install --no-dev --optimize-autoloader
+$PHP_BIN artisan migrate --force
+$PHP_BIN artisan config:cache
+$PHP_BIN artisan route:cache
+$PHP_BIN artisan view:cache
+```
+
+En VPS podés definir `PHP_BIN=php`. Si el panel Vue cambió y **subiste** `frontend/compilacion-para-hosting/` con Git:
 
 ```bash
 cd /var/www/moda/backend
-git pull   # o subida de archivos
-composer install --no-dev --optimize-autoloader
-php artisan migrate --force
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+$PHP_BIN artisan panel:publish
 ```
 
-Frontend:
+Si **no** versionás el build y compilás en el servidor:
 
 ```bash
 cd /var/www/moda/frontend
 git pull
-npm ci
-npm run build
-# Recargar Nginx o copiar dist/ al destino final
+npm install
+npm run build:hosting
+cd ../backend && $PHP_BIN artisan panel:publish
 ```
 
 ---
@@ -360,23 +450,30 @@ npm run build
 
 ## 11. Resumen de comandos (orden típico)
 
+Definí PHP una vez (cPanel: ruta `ea-php82`; local/VPS: `php`):
+
+```bash
+export PHP_BIN=/opt/cpanel/ea-php82/root/usr/bin/php   # cPanel
+# export PHP_BIN=php                                     # local / VPS
+```
+
 ```bash
 # Backend
 cd backend
 cp .env.example .env
 # Editar .env
 composer install --no-dev --optimize-autoloader
-php artisan key:generate
-php artisan jwt:secret
-php artisan migrate --force
-php artisan storage:link
-php artisan config:cache && php artisan route:cache && php artisan view:cache
+$PHP_BIN artisan key:generate
+$PHP_BIN artisan jwt:secret
+$PHP_BIN artisan migrate --force
+$PHP_BIN artisan storage:link
+$PHP_BIN artisan config:cache && $PHP_BIN artisan route:cache && $PHP_BIN artisan view:cache
 
-# Frontend
+# Frontend (en tu PC; luego commit de compilacion-para-hosting — ver sección cPanel arriba)
 cd ../frontend
-echo 'VITE_API_BASE_URL=https://TU-API/api' > .env.production
-npm ci && npm run build
-# Servir frontend/dist y apuntar API a backend/public
+# Ajustá `frontend/.env.hosting` (VITE_APP_BASE + VITE_API_BASE_URL) antes del build.
+npm install && npm run build:hosting
+cd ../backend && $PHP_BIN artisan panel:publish
 ```
 
-Con esto tenés un despliegue coherente con la arquitectura actual del repositorio **moda** (Laravel + Vue/Vite + JWT + MySQL).
+Con esto tenés un despliegue coherente con la arquitectura actual del repositorio **moda** (Laravel + Vue/Vite + JWT + MySQL). Para **cada cambio del panel** con Git + cPanel seguí la sección [cPanel: PHP 8.2 (ea-php82), Git, Artisan y panel:publish](#cpanel-php-82-ea-php82-git-artisan-y-panelpublish).

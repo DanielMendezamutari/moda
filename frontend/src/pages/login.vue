@@ -189,6 +189,8 @@ async function submitLoginAccount() {
 }
 
 onMounted(async () => {
+  if (route.query.prefer === 'pin')
+    startPinOnly()
   await nextTick()
   if (flowMode.value === 'pin')
     pinPanelRef.value?.focus?.()
@@ -196,7 +198,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <RouterLink to="/">
+  <RouterLink :to="{ name: 'tienda' }">
     <div class="app-logo auth-logo">
       <VNodeRenderer :nodes="themeConfig.app.logo" />
       <h1 class="app-logo-title">
@@ -204,6 +206,15 @@ onMounted(async () => {
       </h1>
     </div>
   </RouterLink>
+
+  <p class="text-center mb-4">
+    <RouterLink
+      :to="{ name: 'tienda' }"
+      class="text-primary font-weight-medium"
+    >
+      Tienda en línea · catálogo y carrito para clientes
+    </RouterLink>
+  </p>
 
   <VRow
     no-gutters

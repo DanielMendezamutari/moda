@@ -47,7 +47,7 @@ class PurchaseService
         }
         User::query()->whereKey($requesterId)->firstOrFail();
 
-        return DB::transaction(function () use ($user, $payload, $items, $warehouseId, $requesterId): Purchase {
+        return DB::transaction(function () use ($payload, $items, $warehouseId, $requesterId): Purchase {
             $lineTotals = [];
             $prepared = [];
 

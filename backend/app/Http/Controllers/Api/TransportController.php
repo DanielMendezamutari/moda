@@ -11,6 +11,7 @@ use App\Services\TransportService;
 use App\Support\TabularExport;
 use Dompdf\Dompdf;
 use Dompdf\Options;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -375,7 +376,7 @@ class TransportController extends Controller
         ]);
     }
 
-    private function baseQuery(Request $request): \Illuminate\Database\Eloquent\Builder
+    private function baseQuery(Request $request): Builder
     {
         $q = Transport::query();
 
@@ -514,9 +515,9 @@ class TransportController extends Controller
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Builder<Transport>
+     * @return Builder<Transport>
      */
-    private function transportListForExport(Request $request): \Illuminate\Database\Eloquent\Builder
+    private function transportListForExport(Request $request): Builder
     {
         return $this->baseQuery($request)
             ->with([

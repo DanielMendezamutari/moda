@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Conversion;
 use App\Models\User;
-use App\Models\Warehouse;
 use App\Services\InventoryConversionService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -72,7 +72,7 @@ class ConversionController extends Controller
         return response()->json(['data' => $this->serialize($conversion)]);
     }
 
-    private function baseQuery(Request $request): \Illuminate\Database\Eloquent\Builder
+    private function baseQuery(Request $request): Builder
     {
         $q = Conversion::query();
 

@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Sale;
+use App\Models\User;
 use App\Services\SaleService;
 use App\Support\TabularExport;
 use Dompdf\Dompdf;
 use Dompdf\Options;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -305,7 +307,7 @@ class SaleController extends Controller
         return response()->json(['data' => $this->serializeSaleDetail($sale)], 201);
     }
 
-    private function saleListQuery(Request $request): \Illuminate\Database\Eloquent\Builder
+    private function saleListQuery(Request $request): Builder
     {
         $q = Sale::query();
 
@@ -358,13 +360,15 @@ class SaleController extends Controller
         ]);
 
         $fromRegister = $sale->cashRegisterSession?->cashRegister?->branch;
-        if ($fromRegister instanceof Branch)
+        if ($fromRegister instanceof Branch) {
             return $fromRegister;
+        }
 
         foreach ($sale->items as $item) {
             $b = $item->warehouse?->branch;
-            if ($b instanceof Branch)
+            if ($b instanceof Branch) {
                 return $b;
+            }
         }
 
         return null;
@@ -433,7 +437,7 @@ class SaleController extends Controller
         return $out;
     }
 
-    private function assertSaleVisible(\App\Models\User $user, Sale $sale): void
+    private function assertSaleVisible(User $user, Sale $sale): void
     {
         if ($user->hasRole('admin')) {
             return;

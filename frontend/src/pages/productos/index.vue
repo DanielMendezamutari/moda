@@ -331,7 +331,7 @@ function openEdit(row) {
   editForm.category_id = row.category_id ?? null
   editForm.warehouse_id = row.warehouse_id ?? null
   editForm.barcode = row.barcode || ''
-  editForm.generate_barcode = false
+  editForm.generate_barcode = !editForm.barcode
   editImageFiles.value = []
   editRemoveImage.value = false
   editHadImage.value = !!row.image_url

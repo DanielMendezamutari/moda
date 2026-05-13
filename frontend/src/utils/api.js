@@ -36,6 +36,8 @@ function shouldAttemptRefresh(request) {
   return !path.endsWith('/auth/login')
     && !path.endsWith('/auth/login-pin')
     && !path.endsWith('/auth/refresh')
+    && !path.endsWith('/store/login')
+    && !path.endsWith('/store/register')
 }
 
 function loginRoutePath() {

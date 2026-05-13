@@ -362,6 +362,9 @@
     "invalidateSessionAndGoToLogin": true,
     "formatPermissionLabel": true,
     "formatBsAmount": true,
-    "formatQuantityMax2": true
+    "formatQuantityMax2": true,
+    "$publicApi": true,
+    "isStoreCustomerOnlySession": true,
+    "rolesFromAccessTokenCookie": true
   }
 }

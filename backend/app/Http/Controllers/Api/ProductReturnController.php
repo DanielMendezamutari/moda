@@ -7,6 +7,7 @@ use App\Models\ProductReturn;
 use App\Models\SaleDetail;
 use App\Models\User;
 use App\Services\ProductReturnInventoryService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -246,7 +247,7 @@ class ProductReturnController extends Controller
         return response()->json(null, 204);
     }
 
-    private function baseQuery(Request $request): \Illuminate\Database\Eloquent\Builder
+    private function baseQuery(Request $request): Builder
     {
         $q = ProductReturn::query();
 

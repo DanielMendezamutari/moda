@@ -147,26 +147,33 @@ class UserController extends Controller
             $user->syncRoles([$validated['role']]);
         }
 
-        if (array_key_exists('name', $validated))
+        if (array_key_exists('name', $validated)) {
             $user->name = $validated['name'];
+        }
 
-        if (array_key_exists('email', $validated))
+        if (array_key_exists('email', $validated)) {
             $user->email = $validated['email'];
+        }
 
-        if (array_key_exists('branch_id', $validated))
+        if (array_key_exists('branch_id', $validated)) {
             $user->branch_id = $validated['branch_id'];
+        }
 
-        if (array_key_exists('document_number', $validated))
+        if (array_key_exists('document_number', $validated)) {
             $user->document_number = $validated['document_number'];
+        }
 
-        if (array_key_exists('gender', $validated))
+        if (array_key_exists('gender', $validated)) {
             $user->gender = $validated['gender'];
+        }
 
-        if (array_key_exists('is_active', $validated))
+        if (array_key_exists('is_active', $validated)) {
             $user->is_active = $validated['is_active'];
+        }
 
-        if (! empty($validated['password']))
+        if (! empty($validated['password'])) {
             $user->password = $validated['password'];
+        }
 
         if ($request->exists('pin')) {
             $pin = $request->input('pin');
@@ -248,8 +255,9 @@ class UserController extends Controller
 
     private function deleteStoredAvatar(User $user): void
     {
-        if ($user->avatar_upload_path && Storage::disk('public')->exists($user->avatar_upload_path))
+        if ($user->avatar_upload_path && Storage::disk('public')->exists($user->avatar_upload_path)) {
             Storage::disk('public')->delete($user->avatar_upload_path);
+        }
     }
 
     /**
@@ -265,8 +273,9 @@ class UserController extends Controller
         $gender = $user->gender;
 
         $avatarUrl = null;
-        if ($user->avatar_upload_path)
+        if ($user->avatar_upload_path) {
             $avatarUrl = asset('storage/'.$user->avatar_upload_path);
+        }
 
         return [
             'id' => $user->id,

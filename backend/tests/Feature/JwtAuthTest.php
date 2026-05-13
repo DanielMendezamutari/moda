@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 
@@ -140,7 +141,7 @@ test('me returns authenticated user', function () {
 });
 
 test('me returns pos capability flags for admin role', function () {
-    $this->seed(\Database\Seeders\RolePermissionSeeder::class);
+    $this->seed(RolePermissionSeeder::class);
 
     $user = User::factory()->create();
     $user->assignRole('admin');

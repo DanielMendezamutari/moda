@@ -49,7 +49,7 @@ test('admin can create role with permissions', function () {
         ->assertCreated()
         ->assertJsonPath('data.name', 'supervisor');
 
-    expect(\Spatie\Permission\Models\Role::findByName('supervisor', 'api'))
+    expect(Role::findByName('supervisor', 'api'))
         ->not->toBeNull();
 });
 

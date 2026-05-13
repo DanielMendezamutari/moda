@@ -95,6 +95,7 @@ final class ProductImportService
                 $name = $this->stringCell($assoc['nombre'] ?? null);
                 if ($name === '') {
                     $rowNum++;
+
                     continue;
                 }
 

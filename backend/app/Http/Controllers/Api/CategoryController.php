@@ -38,8 +38,9 @@ class CategoryController extends Controller
         ]);
 
         $path = null;
-        if ($request->hasFile('image'))
+        if ($request->hasFile('image')) {
             $path = $request->file('image')->store('categories', 'public');
+        }
 
         $category = Category::query()->create([
             'title' => $validated['title'],
@@ -75,11 +76,13 @@ class CategoryController extends Controller
             'remove_image' => ['sometimes', 'boolean'],
         ]);
 
-        if (array_key_exists('title', $validated))
+        if (array_key_exists('title', $validated)) {
             $category->title = $validated['title'];
+        }
 
-        if (array_key_exists('is_active', $validated))
+        if (array_key_exists('is_active', $validated)) {
             $category->is_active = $validated['is_active'];
+        }
 
         if ($request->boolean('remove_image')) {
             $this->deleteStoredImage($category);
@@ -110,8 +113,9 @@ class CategoryController extends Controller
 
     private function deleteStoredImage(Category $category): void
     {
-        if ($category->image_path && Storage::disk('public')->exists($category->image_path))
+        if ($category->image_path && Storage::disk('public')->exists($category->image_path)) {
             Storage::disk('public')->delete($category->image_path);
+        }
     }
 
     /**
@@ -120,8 +124,9 @@ class CategoryController extends Controller
     private function serializeCategory(Category $category): array
     {
         $imageUrl = null;
-        if ($category->image_path)
+        if ($category->image_path) {
             $imageUrl = asset('storage/'.$category->image_path);
+        }
 
         return [
             'id' => $category->id,

@@ -1,9 +1,8 @@
 <?php
 
-use App\Models\InventoryKardexEntry;
 use App\Models\Branch;
+use App\Models\InventoryKardexEntry;
 use App\Models\Product;
-use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -137,4 +136,57 @@ test('backfill command inserts COMPRAS row when delivery had stock but kardex wa
     expect(Artisan::output())->toContain('Insertadas');
 
     expect(InventoryKardexEntry::query()->where('reference_type', 'purchase_item')->count())->toBe(1);
+});
+
+test('admin can load product ledger by product_id across warehouses', function () {
+    $ctx = kardexTestContext();
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    $this->actingAs($admin, 'api')
+        ->getJson("/api/inventory/kardex/product-ledger?product_id={$ctx->product->id}")
+        ->assertOk()
+        ->assertJsonPath('data.product.id', $ctx->product->id)
+        ->assertJsonPath('data.warehouses.0.warehouse_id', $ctx->warehouse->id)
+        ->assertJsonStructure([
+            'data' => [
+                'product' => ['id', 'name', 'sku', 'barcode'],
+                'view_types',
+                'warehouses' => [
+                    '*' => ['warehouse_id', 'warehouse', 'summary', 'sections'],
+                ],
+            ],
+        ]);
+});
+
+test('admin can load product ledger by barcode', function () {
+    $ctx = kardexTestContext();
+    $ctx->product->update(['barcode' => 'INVSCAN-TEST-001']);
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    $this->actingAs($admin, 'api')
+        ->getJson('/api/inventory/kardex/product-ledger?barcode=INVSCAN-TEST-001')
+        ->assertOk()
+        ->assertJsonPath('data.product.id', $ctx->product->id);
+});
+
+test('product ledger returns 422 without barcode or product_id', function () {
+    $ctx = kardexTestContext();
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    $this->actingAs($admin, 'api')
+        ->getJson('/api/inventory/kardex/product-ledger')
+        ->assertStatus(422);
+});
+
+test('product ledger returns 404 for unknown barcode', function () {
+    $ctx = kardexTestContext();
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    $this->actingAs($admin, 'api')
+        ->getJson('/api/inventory/kardex/product-ledger?barcode=__NO_EXISTE__')
+        ->assertNotFound();
 });

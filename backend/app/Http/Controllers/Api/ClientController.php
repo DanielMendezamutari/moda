@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\ClientCreditTransaction;
 use App\Models\User;
 use App\Services\ClientCreditService;
 use App\Support\ClientDeletionGuard;
@@ -875,7 +876,7 @@ class ClientController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function serializeTransaction(\App\Models\ClientCreditTransaction $t): array
+    private function serializeTransaction(ClientCreditTransaction $t): array
     {
         $c = $t->creator;
 

@@ -68,8 +68,9 @@ return new class extends Migration
         $seen = [];
         foreach (DB::table('product_warehouses')->orderBy('id')->cursor() as $pw) {
             $pid = (int) $pw->product_id;
-            if (isset($seen[$pid]))
+            if (isset($seen[$pid])) {
                 continue;
+            }
             $seen[$pid] = true;
             DB::table('products')->where('id', $pid)->update([
                 'warehouse_id' => $pw->warehouse_id,

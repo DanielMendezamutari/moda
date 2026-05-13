@@ -105,12 +105,18 @@
         .barcode-block .barcode-img {
             display: block;
             margin: 0 auto;
-            height: 48px;
+            height: 72px;
             width: auto;
             max-width: 100%;
         }
         .barcode-block .barcode-wrap { text-align: center; }
         .barcode-block .barcode-wrap > div { margin: 0 auto; }
+        .barcode-block .barcode-svg-embed svg {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+            height: auto;
+        }
         .barcode-digits {
             font-family: DejaVu Sans Mono, monospace;
             font-size: 10px;

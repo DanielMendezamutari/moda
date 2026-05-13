@@ -2,9 +2,10 @@ import { setupLayouts } from 'virtual:generated-layouts'
 import { parse } from 'cookie-es'
 import { destr } from 'destr'
 import { createRouter, createWebHistory } from 'vue-router/auto'
+import { isStoreCustomerOnlySession } from '@/utils/storeCustomerGate'
 
 /** Rutas que no requieren JWT (nombres de `unplugin-vue-router`, ver `typed-router.d.ts`). */
-const PUBLIC_ROUTE_NAMES = new Set(['login', '$error'])
+const PUBLIC_ROUTE_NAMES = new Set(['login', 'tienda', '$error'])
 
 function readAccessTokenFromCookie() {
   if (typeof document === 'undefined')
@@ -78,10 +79,23 @@ router.beforeEach(to => {
   const isPublic = PUBLIC_ROUTE_NAMES.has(name)
 
   if (!token && !isPublic) {
-    return {
-      name: 'login',
-      ...(to.fullPath !== '/login' ? { query: { redirect: to.fullPath } } : {}),
+    const q = {}
+    const fp = to.fullPath.split('?')[0] || '/'
+    if (fp !== '/' && fp !== '/tienda')
+      q.redirect = to.fullPath
+
+    return { name: 'tienda', query: q }
+  }
+
+  if (token && isStoreCustomerOnlySession()) {
+    if (name === 'login') {
+      return { name: 'tienda' }
     }
+    if (!isPublic && name !== 'tienda') {
+      return { name: 'tienda' }
+    }
+
+    return true
   }
 
   if (token && name === 'login') {

@@ -38,6 +38,7 @@ class RolePermissionSeeder extends Seeder
 
         $admin = Role::findOrCreate('admin', $guard);
         $cashier = Role::findOrCreate('cashier', $guard);
+        Role::findOrCreate('store_customer', $guard);
 
         $admin->syncPermissions(Permission::where('guard_name', $guard)->get());
 

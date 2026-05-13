@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\SalePayment;
 use Illuminate\Support\Collection;
 use NumberFormatter;
 
@@ -46,17 +47,19 @@ final class TicketHelpers
     /**
      * Resumen del tipo de venta para el ticket.
      *
-     * @param  Collection<int, \App\Models\SalePayment>  $payments
+     * @param  Collection<int, SalePayment>  $payments
      */
     public static function tipoPagoResumen(Collection $payments): string
     {
-        if ($payments->isEmpty())
+        if ($payments->isEmpty()) {
             return 'SIN PAGO REGISTRADO';
+        }
 
         $methods = $payments->pluck('method_payment')->map(fn ($m) => strtolower((string) $m))->unique()->values()->all();
 
-        if (count($methods) > 1)
+        if (count($methods) > 1) {
             return 'MIXTO';
+        }
 
         $one = $methods[0] ?? '';
 

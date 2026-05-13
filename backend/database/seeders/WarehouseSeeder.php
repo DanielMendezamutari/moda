@@ -11,8 +11,9 @@ class WarehouseSeeder extends Seeder
     public function run(): void
     {
         $branch = Branch::where('code', 'PRIN')->first();
-        if (! $branch)
+        if (! $branch) {
             return;
+        }
 
         Warehouse::firstOrCreate(
             [

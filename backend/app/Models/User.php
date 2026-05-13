@@ -9,6 +9,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Permission\Traits\HasRoles;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 
@@ -79,7 +80,9 @@ class User extends Authenticatable implements JWTSubject
      */
     public function getJWTCustomClaims(): array
     {
-        return [];
+        return [
+            'roles' => $this->getRoleNames()->values()->all(),
+        ];
     }
 
     /**
@@ -96,5 +99,21 @@ class User extends Authenticatable implements JWTSubject
     public function sales(): HasMany
     {
         return $this->hasMany(Sale::class);
+    }
+
+    /**
+     * @return HasOne<Client, $this>
+     */
+    public function clientRecord(): HasOne
+    {
+        return $this->hasOne(Client::class);
+    }
+
+    /**
+     * @return HasMany<StoreCartItem, $this>
+     */
+    public function storeCartItems(): HasMany
+    {
+        return $this->hasMany(StoreCartItem::class);
     }
 }
