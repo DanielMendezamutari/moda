@@ -1,0 +1,19 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * Renombrar a `index.php` en el hosting si la raíz del dominio sigue en 404
+ * aunque exista `index.html` (cPanel prioriza index.php).
+ *
+ * Colocar en la MISMA carpeta que `index.html`. Opcional: en `.htaccess`:
+ *   DirectoryIndex index.php index.html
+ */
+
+header('Content-Type: text/html; charset=utf-8');
+$index = __DIR__ . DIRECTORY_SEPARATOR . 'index.html';
+if (! is_readable($index)) {
+    http_response_code(500);
+    echo 'No se encuentra index.html en el mismo directorio que index.php.';
+    exit(1);
+}
+readfile($index);
