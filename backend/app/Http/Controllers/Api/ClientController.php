@@ -377,6 +377,10 @@ class ClientController extends Controller
             });
         }
 
+        if ($request->boolean('credit_enabled')) {
+            $q->where('credit_enabled', true);
+        }
+
         return $q;
     }
 

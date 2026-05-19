@@ -1,5 +1,5 @@
 /**
- * Rutas nombradas válidas (unplugin-vue-router): `root`, `second-page`, `roles-permisos`, `usuarios`, `sucursales`, `almacenes`, `categorias`, `proveedores`, `unidades`, `productos`, `productos-registrar`, `clientes`, `ventas`, `ventas-registrar`, `devoluciones`, `compras`, `compras-registrar`, `transportes`, `transportes-registrar`, `conversion`, `conversion-registrar`, `inventario-kardex`, `caja-control`, `caja-sesiones`, `caja-movimientos`, `caja-reportes`, `login`, `$error`.
+ * Rutas nombradas válidas (unplugin-vue-router): `root`, `second-page`, `roles-permisos`, `usuarios`, `sucursales`, `almacenes`, `categorias`, `proveedores`, `unidades`, `productos`, `productos-registrar`, `clientes`, `clientes-cuentas`, `ventas`, `ventas-registrar`, `devoluciones`, `compras`, `compras-registrar`, `transportes`, `transportes-registrar`, `conversion`, `conversion-registrar`, `inventario-kardex`, `caja-control`, `caja-sesiones`, `caja-movimientos`, `caja-reportes`, `login`, `$error`.
  * Usa `{ name: 'second-page' }` como placeholder hasta crear cada página en `src/pages/`.
  * ❌ No uses nombres inventados (p. ej. `dashboards-crm`): no hay ruta → pantalla en blanco / error.
  */
@@ -80,8 +80,21 @@ export default [
   {
     title: 'Clientes',
     icon: { icon: 'ri-p2p-line' },
-    to: { name: 'clientes' },
     roles: ['admin', 'cashier'],
+    children: [
+      {
+        title: 'Listado',
+        to: { name: 'clientes' },
+        icon: { icon: 'ri-list-check' },
+        roles: ['admin', 'cashier'],
+      },
+      {
+        title: 'Cuentas corrientes',
+        to: { name: 'clientes-cuentas' },
+        icon: { icon: 'ri-hand-coin-line' },
+        roles: ['admin', 'cashier'],
+      },
+    ],
   },
   {
     title: 'Ventas',

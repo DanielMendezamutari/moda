@@ -27,6 +27,7 @@ declare module 'vue-router/auto-routes' {
     'caja-sesiones': RouteRecordInfo<'caja-sesiones', '/caja/sesiones', Record<never, never>, Record<never, never>>,
     'categorias': RouteRecordInfo<'categorias', '/categorias', Record<never, never>, Record<never, never>>,
     'clientes': RouteRecordInfo<'clientes', '/clientes', Record<never, never>, Record<never, never>>,
+    'clientes-cuentas': RouteRecordInfo<'clientes-cuentas', '/clientes/cuentas', Record<never, never>, Record<never, never>>,
     'compras': RouteRecordInfo<'compras', '/compras', Record<never, never>, Record<never, never>>,
     'compras-registrar': RouteRecordInfo<'compras-registrar', '/compras/registrar', Record<never, never>, Record<never, never>>,
     'conversion': RouteRecordInfo<'conversion', '/conversion', Record<never, never>, Record<never, never>>,

@@ -281,3 +281,30 @@ test('cashier can list clients but not create', function () {
         ])
         ->assertForbidden();
 });
+
+test('clients index can filter by credit_enabled', function () {
+    $branch = Branch::factory()->create();
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    Client::factory()->create([
+        'branch_id' => $branch->id,
+        'n_document' => 'CRED-ON',
+        'credit_enabled' => true,
+        'credit_limit' => 500,
+        'credit_balance' => 10,
+    ]);
+    Client::factory()->create([
+        'branch_id' => $branch->id,
+        'n_document' => 'CRED-OFF',
+        'credit_enabled' => false,
+        'credit_limit' => null,
+        'credit_balance' => 0,
+    ]);
+
+    $this->actingAs($admin, 'api')
+        ->getJson('/api/clients?credit_enabled=1')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.n_document', 'CRED-ON');
+});

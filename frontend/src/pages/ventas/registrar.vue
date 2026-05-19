@@ -1,6 +1,6 @@
 <script setup>
 /* eslint-disable camelcase -- payload API Laravel (snake_case). */
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { messageFromApiError } from '@/utils/apiErrorMessage'
@@ -276,13 +276,6 @@ const showCashCalculator = computed(() =>
   }),
 )
 
-const clientItems = computed(() =>
-  clients.value.map(c => ({
-    title: `${c.full_name} (${c.n_document || 's/doc'})`,
-    value: c.id,
-  })),
-)
-
 const branchItems = computed(() =>
   branches.value.map(b => ({
     title: b.code ? `${b.name} (${b.code})` : b.name,
@@ -320,6 +313,18 @@ const creditSummary = computed(() => {
     ? Number(String(limRaw).replace(',', '.'))
     : null
 
+  let chargeThisSale = 0
+  for (const p of paymentLines.value) {
+    if (String(p.method_payment || '').toLowerCase().trim() !== 'credito')
+      continue
+    const a = Number(String(p.amount || '').replace(',', '.'))
+    if (Number.isFinite(a) && a > 0)
+      chargeThisSale += a
+  }
+  chargeThisSale = Math.round(chargeThisSale * 100) / 100
+
+  const balanceAfterThisSale = Math.round((bal + chargeThisSale) * 100) / 100
+
   let disponible = null
   if (lim != null && Number.isFinite(lim))
     disponible = Math.max(0, Math.round((lim - bal) * 100) / 100)
@@ -328,6 +333,8 @@ const creditSummary = computed(() => {
     balance: bal,
     limit: lim,
     disponible,
+    chargeThisSale,
+    balanceAfterThisSale,
   }
 })
 
@@ -343,6 +350,92 @@ const paymentsCreditSum = computed(() => {
   }
 
   return Math.round(s * 100) / 100
+})
+
+/** Con línea de pago a crédito con monto > 0 (no cuenta el método si el monto está vacío). */
+const hasCreditoPaymentLine = computed(() => {
+  for (const p of paymentLines.value) {
+    const a = Number(String(p.amount || '').replace(',', '.'))
+    if (!Number.isFinite(a) || a <= 0.0001)
+      continue
+    if (String(p.method_payment || '').toLowerCase().trim() === 'credito')
+      return true
+  }
+
+  return false
+})
+
+/** Con crédito en cuenta, el buscador de cliente muestra solo quienes tienen línea (podés ampliar con el interruptor). */
+const showAllClientsInPos = ref(false)
+
+const clientsForClientPicker = computed(() => {
+  let base = clients.value
+  if (hasCreditoPaymentLine.value && !showAllClientsInPos.value)
+    base = base.filter(c => c.credit_enabled)
+
+  const id = clientId.value
+  if (id != null) {
+    const has = base.some(c => Number(c.id) === Number(id))
+    if (!has) {
+      const hit = clients.value.find(c => Number(c.id) === Number(id))
+      if (hit)
+        base = [...base, hit]
+    }
+  }
+
+  return base
+})
+
+const clientItems = computed(() =>
+  clientsForClientPicker.value.map(c => ({
+    title: `${c.full_name} (${c.n_document || 's/doc'})${c.credit_enabled ? '' : ' · sin cuenta'}`,
+    value: c.id,
+  })),
+)
+
+const posCreditSaleBlocked = computed(() => {
+  if (!hasCreditoPaymentLine.value)
+    return false
+  if (clientId.value == null)
+    return true
+  if (!selectedClient.value?.credit_enabled)
+    return true
+
+  return false
+})
+
+function mergeClientRowFromApi(row) {
+  if (!row || row.id == null)
+    return
+  const id = Number(row.id)
+  const idx = clients.value.findIndex(x => Number(x.id) === id)
+  if (idx >= 0)
+    clients.value[idx] = { ...clients.value[idx], ...row }
+  else
+    clients.value.push(row)
+}
+
+async function refreshSelectedClientFromApi() {
+  const id = clientId.value
+  if (id == null)
+    return
+  try {
+    const res = await $api(`/clients/${Number(id)}`)
+    if (res?.data)
+      mergeClientRowFromApi(res.data)
+  }
+  catch {
+    /* listado puede estar desactualizado; no bloqueamos la venta */
+  }
+}
+
+watch(clientId, () => {
+  void refreshSelectedClientFromApi()
+})
+
+watch(paymentsDialogOpen, (open) => {
+  if (open)
+    void refreshSelectedClientFromApi()
 })
 
 function fillRemainingAsCredit() {
@@ -1063,7 +1156,22 @@ onMounted(async () => {
                   >
                     Nuevo cliente
                   </VBtn>
+                  <VSwitch
+                    v-if="hasCreditoPaymentLine"
+                    v-model="showAllClientsInPos"
+                    hide-details
+                    density="compact"
+                    color="primary"
+                    class="ms-1 flex-shrink-0"
+                    label="Ver todos"
+                  />
                 </div>
+                <p
+                  v-if="hasCreditoPaymentLine"
+                  class="text-caption text-medium-emphasis mt-1 mb-0"
+                >
+                  Con crédito en cuenta solo se listan clientes con línea habilitada. Activá «Ver todos» si necesitás buscar otro y asignar crédito después.
+                </p>
               </VCol>
               <VCol
                 v-if="needsCashSessionForSale && cashActiveSessions.length"
@@ -1103,6 +1211,18 @@ onMounted(async () => {
             </VRow>
           </VCardText>
         </VCard>
+
+        <VAlert
+          v-if="posCreditSaleBlocked"
+          type="warning"
+          variant="tonal"
+          density="comfortable"
+          class="mb-4"
+          rounded="lg"
+          border="start"
+        >
+          Hay pago a <strong>crédito en cuenta</strong>: elegí un cliente con cuenta corriente habilitada antes de cobrar.
+        </VAlert>
 
         <VAlert
           v-if="submitError"
@@ -1688,11 +1808,19 @@ onMounted(async () => {
                         Línea de crédito
                       </div>
                       <div class="text-body-2">
-                        Saldo {{ formatBs(creditSummary.balance) }}
+                        <span class="text-medium-emphasis">Saldo actual</span>
+                        {{ formatBs(creditSummary.balance) }}
                         <span class="text-medium-emphasis"> · </span>
                         Límite {{ creditSummary.limit != null ? formatBs(creditSummary.limit) : '—' }}
                         <span class="text-medium-emphasis"> · </span>
                         Disponible {{ creditSummary.disponible != null ? formatBs(creditSummary.disponible) : 'sin tope' }}
+                      </div>
+                      <div
+                        v-if="creditSummary.chargeThisSale > 0.0001"
+                        class="text-body-2 font-weight-medium mt-2"
+                      >
+                        Con esta venta quedaría en {{ formatBs(creditSummary.balanceAfterThisSale) }} Bs.
+                        <span class="text-caption text-medium-emphasis"> (fiado {{ formatBs(creditSummary.chargeThisSale) }})</span>
                       </div>
                       <VBtn
                         v-if="saleDebtPreview > 0.0001"
@@ -1739,7 +1867,7 @@ onMounted(async () => {
                       color="primary"
                       class="font-weight-bold mb-2"
                       :loading="submitting"
-                      :disabled="posSaleBlocked"
+                      :disabled="posSaleBlocked || posCreditSaleBlocked"
                       prepend-icon="ri-checkbox-circle-fill"
                     >
                       Confirmar venta
@@ -1799,7 +1927,7 @@ onMounted(async () => {
               size="large"
               form="venta-registrar-form"
               :loading="submitting"
-              :disabled="posSaleBlocked"
+              :disabled="posSaleBlocked || posCreditSaleBlocked"
               prepend-icon="ri-checkbox-circle-fill"
             >
               Cobrar
@@ -1834,7 +1962,8 @@ onMounted(async () => {
                 Medios de pago
               </VCardTitle>
               <VCardSubtitle class="text-body-2">
-                Efectivo, QR, tarjeta, transferencia o crédito en cuenta.
+                <span v-if="hasCreditoPaymentLine && !showCashCalculator">Crédito en cuenta: montos sin contador de billetes (solo medios digitales / fiado).</span>
+                <span v-else>Efectivo, QR, tarjeta, transferencia o crédito en cuenta.</span>
               </VCardSubtitle>
               <template #append>
                 <VBtn
@@ -1848,6 +1977,18 @@ onMounted(async () => {
             </VCardItem>
             <VDivider />
             <VCardText class="pt-5">
+              <VAlert
+                v-if="hasCreditoPaymentLine"
+                type="info"
+                variant="tonal"
+                density="compact"
+                class="mb-4"
+                rounded="lg"
+              >
+                <span v-if="!clientId">Elegí un cliente con cuenta corriente en la barra superior.</span>
+                <span v-else-if="!selectedClient?.credit_enabled">Este cliente no tiene fiado habilitado: cambiá de cliente o quitá la línea «Crédito en cuenta».</span>
+                <span v-else>El monto en «Crédito en cuenta» se suma al saldo del cliente al confirmar la venta.</span>
+              </VAlert>
               <p class="text-body-2 mb-4">
                 <span class="text-medium-emphasis">Total venta:</span>
                 <span class="font-weight-bold text-high-emphasis ms-1">{{ formatBs(saleTotal) }} Bs.</span>
@@ -1976,6 +2117,7 @@ onMounted(async () => {
                       />
                     </VCol>
                     <VCol
+                      v-if="String(p.method_payment || '').toLowerCase().trim() !== 'credito'"
                       cols="12"
                       sm="6"
                     >

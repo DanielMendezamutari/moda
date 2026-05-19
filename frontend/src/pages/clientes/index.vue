@@ -1,4 +1,5 @@
 <script setup>
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { messageFromApiError } from '@/utils/apiErrorMessage'
 import { $api, $apiRaw, blobFromOfetchRawResponse } from '@/utils/api'
@@ -10,6 +11,7 @@ definePage({
 })
 
 const authStore = useAuthStore()
+const route = useRoute()
 
 const canView = computed(() =>
   authStore.isAdmin || authStore.hasRole('cashier'),
@@ -593,6 +595,9 @@ function movementLabel(t) {
 onMounted(async () => {
   await authStore.fetchMe()
   if (canView.value) {
+    const q = route.query.search
+    if (q != null && String(q).trim() !== '')
+      search.value = String(q).trim()
     await fetchBranches()
     await fetchClients()
   }
